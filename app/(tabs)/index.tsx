@@ -48,9 +48,16 @@ function HomeScreen() {
     setupNotifications();
   }, []);
 
-  // 타이머 완료 시 알림 전송 (hasActiveTimer로 초기 0:00 상태 제외)
+  // 타이머 완료 시 알림 전송 (hasActiveTimer로 초기 0:00 상태 제외, insulin_injected가 true이면 알림 보내지 않음)
   useEffect(() => {
-    if (timer.remainingSeconds === 0 && timer.hasActiveTimer && !timer.notificationSent && timer.isCompleted) {
+    const shouldSendNotification = 
+      timer.remainingSeconds === 0 && 
+      timer.hasActiveTimer && 
+      !timer.notificationSent && 
+      timer.isCompleted &&
+      !timer.latestRecord?.insulin_injected; // 인슐린이 이미 주입되지 않은 경우만 알림
+
+    if (shouldSendNotification) {
       const sendNotification = async () => {
         try {
           await Notifications.scheduleNotificationAsync({
@@ -62,14 +69,14 @@ function HomeScreen() {
             },
             trigger: null,
           });
+          timer.setNotificationSent(true);
         } catch (error) {
           console.error('Notification error:', error);
         }
       };
       sendNotification();
-      timer.setNotificationSent(true);
     }
-  }, [timer.remainingSeconds, timer.hasActiveTimer, timer.isCompleted, timer.notificationSent, timer.setNotificationSent]);
+  }, [timer.remainingSeconds, timer.hasActiveTimer, timer.isCompleted, timer.notificationSent, timer.latestRecord?.insulin_injected, timer.setNotificationSent]);
 
   useFocusEffect(
     useCallback(() => {

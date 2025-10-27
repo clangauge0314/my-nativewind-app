@@ -34,25 +34,20 @@ export default function TrackerScreen() {
         contentContainerStyle={{ paddingBottom: tabBarHeight + 20 }}
       >
         <ThemedView className="flex-1 pt-6 pb-4">
-          {/* Title */}
-          <ThemedText type="title" className="text-center mb-1">Health Tracker</ThemedText>
+          <ThemedText type="title" className="text-center mb-1">Insulin Tracker</ThemedText>
           <ThemedText className="text-center mb-6 opacity-70 text-sm">
-            Monitor your glucose & insulin levels
+            Monitor your insulin levels
           </ThemedText>
           
-          {/* Time Range Selector */}
           <TimeRangeSelector 
             selectedRange={selectedRange}
             onRangeChange={setSelectedRange}
           />
 
-          {/* Glucose Chart */}
           <HealthChart timeRange={selectedRange} type="glucose" />
 
-          {/* Insulin Chart */}
           <HealthChart timeRange={selectedRange} type="insulin" />
 
-          {/* Info Card */}
           <ThemedView 
             className="mx-4 p-4 rounded-xl"
             style={{
