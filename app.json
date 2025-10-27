@@ -12,14 +12,24 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.mynativewindapp",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "edgeToEdgeEnabled": false,
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "pan",
+      "navigationBar": {
+        "visible": "leanback"
+      },
+      "statusBar": {
+        "hidden": false,
+        "style": "auto"
+      }
     },
     "web": {
       "output": "static",
@@ -38,11 +48,18 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f7a248cc-ffbe-4967-8a18-2476fc75f286"
+      }
     }
   }
 }
