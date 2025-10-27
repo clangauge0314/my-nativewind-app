@@ -1,7 +1,3 @@
-import { AddBloodGlucose } from '@/components/health/add-blood-glucose';
-import { AddInsulin } from '@/components/health/add-insulin';
-import { QuickActions } from '@/components/health/quick-actions';
-import { RecentHistory } from '@/components/health/recent-history';
 import { PageLoader } from '@/components/page-loader';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -15,14 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function HistoryScreen() {
   const user = useAuthStore((state) => state.user);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState('');
   const insets = useSafeAreaInsets();
-
-  const [showAddBG, setShowAddBG] = useState(false);
-  const [showAddInsulin, setShowAddInsulin] = useState(false);
-  const [showAddMeal, setShowAddMeal] = useState(false);
-  const [showAddExercise, setShowAddExercise] = useState(false);
-  const [showAddSleep, setShowAddSleep] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -70,18 +59,6 @@ export default function HistoryScreen() {
               Track your health progress and manage your schedule
             </ThemedText>
           </View>
-
-          {/* Calendar - Hidden for now */}
-          {/* <View className="mb-6 p-6 bg-white rounded-2xl border border-gray-200">
-            <ThemedText className="text-xl font-bold mb-4">Calendar</ThemedText>
-            <View className="flex-row justify-between">
-              <ThemedText className="text-sm text-gray-600">Today: {new Date().toLocaleDateString()}</ThemedText>
-              <ThemedText className="text-sm text-blue-600">
-                {selectedDate ? `Selected: ${selectedDate}` : 'No date selected'}
-              </ThemedText>
-            </View>
-            <SimpleCalendar onDateSelect={setSelectedDate} selectedDate={selectedDate} />
-          </View> */}
           
           {/* History Section */}
           <View className="mb-6 p-6 bg-white rounded-2xl border border-gray-200">
@@ -92,40 +69,8 @@ export default function HistoryScreen() {
               </ThemedText>
             </View>
           </View>
-
-          <View className="my-6">
-            <ThemedText className="text-xl font-bold mb-4">
-              Quick Actions
-            </ThemedText>
-            <QuickActions
-              onAddBloodGlucose={() => setShowAddBG(true)}
-              onAddInsulin={() => setShowAddInsulin(true)}
-              onAddMeal={() => setShowAddMeal(true)}
-              onAddExercise={() => setShowAddExercise(true)}
-              onAddSleep={() => setShowAddSleep(true)}
-            />
-          </View>
-
-          <View className="my-6">
-            <ThemedText className="text-xl font-bold mb-4">
-              Recent History
-            </ThemedText>
-            <RecentHistory />
-          </View>
         </ThemedView>
       </ScrollView>
-
-      <AddBloodGlucose
-        visible={showAddBG}
-        onClose={() => setShowAddBG(false)}
-      />
-      <AddInsulin
-        visible={showAddInsulin}
-        onClose={() => setShowAddInsulin(false)}
-      />
-      
     </PageLoader>
   );
 }
-
- 

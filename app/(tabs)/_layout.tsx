@@ -6,12 +6,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { ThemedText } from '@/components/themed-text';
+import { useAuthStore } from '@/stores/auth-store';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const user = useAuthStore((state) => state.user);
 
   const handleAddData = () => {
+    if (!user) return; // 로그인하지 않은 경우 아무 동작 안 함
     console.log('➕ Navigating to /add-record');
     router.push('/add-record');
   };
@@ -105,15 +108,17 @@ export default function TabLayout() {
           height: 70,
           justifyContent: 'center',
           alignItems: 'center',
-          backgroundColor: '#2563eb',
+          backgroundColor: user ? '#2563eb' : '#cbd5e1',
         }}
       >
         <Pressable
           onPress={handleAddData}
+          disabled={!user}
           style={{
             paddingHorizontal: 20,
             paddingVertical: 10,
             borderRadius: 8,
+            opacity: user ? 1 : 0.6,
           }}
         >
           <ThemedText style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>
