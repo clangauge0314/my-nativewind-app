@@ -159,6 +159,20 @@ function AppContent() {
               animation: 'slide_from_bottom',
             }} 
           />
+          <Stack.Screen 
+            name="quiz" 
+            options={{ 
+              headerShown: false,
+              presentation: 'card',
+            }} 
+          />
+          <Stack.Screen 
+            name="quiz-detail" 
+            options={{ 
+              headerShown: false,
+              presentation: 'card',
+            }} 
+          />
         </Stack>
         <Toaster 
           theme="light"

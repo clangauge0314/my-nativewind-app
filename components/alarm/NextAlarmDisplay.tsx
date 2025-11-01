@@ -66,7 +66,7 @@ export const NextAlarmDisplay = React.memo(function NextAlarmDisplay({
     return (
       <View className="mb-0 mt-4">
         <View
-          className="rounded-3xl p-16"
+          className="rounded-3xl p-14"
           style={{
             backgroundColor: '#ffffff',
             borderWidth: 0,

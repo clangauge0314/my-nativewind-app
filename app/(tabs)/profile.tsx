@@ -12,6 +12,7 @@ import { useHealthStore } from '@/stores/health-store';
 import { InsulinPredictionRecord } from '@/types/health-record';
 import firestore from '@react-native-firebase/firestore';
 import { useFocusEffect } from '@react-navigation/native';
+import { router } from 'expo-router';
 import {
   Brain,
   LogOut
@@ -130,7 +131,11 @@ export default function ProfileScreen() {
   };
 
   const handleMenuItem = (item: string) => {
-    toast.info(`${item} feature coming soon!`);
+    if (item === 'Quiz') {
+      router.push('/quiz');
+    } else {
+      toast.info(`${item} feature coming soon!`);
+    }
   };
 
   useFocusEffect(
