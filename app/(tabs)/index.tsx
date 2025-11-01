@@ -1,93 +1,52 @@
-import { InsulinTimer } from '@/components/health/insulin-timer';
+import { AddAlarmModal, AlarmData, AlarmListModal, NextAlarmDisplay } from '@/components/alarm';
 import { UserHeader } from '@/components/home/user-header';
 import { PageLoader } from '@/components/page-loader';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useInsulinTimer } from '@/hooks/use-insulin-timer';
+import { useAlarms } from '@/hooks/use-alarms';
 import { useResponsive } from '@/hooks/use-responsive';
 import { useAuthStore } from '@/stores/auth-store';
+import type { Alarm } from '@/types/alarm';
 import { useFocusEffect } from '@react-navigation/native';
-import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { List, Plus } from 'lucide-react-native';
+import { useCallback, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { toast } from 'sonner-native';
 
 function HomeScreen() {
   const user = useAuthStore((state) => state.user);
   const router = useRouter();
   const [showLoginModal, setShowLoginModal] = useState(false);
-  
-  // Use the insulin timer hook
-  const timer = useInsulinTimer(user?.id);
-  
-  // Extract values from latest record for the timer display
-  const bloodGlucose = timer.latestRecord?.current_glucose ?? 150;
-  const carbohydrates = timer.latestRecord?.carbohydrates ?? 60;
-  const insulinRatio = timer.latestRecord?.insulin_ratio ?? 15;
-  const correctionFactor = timer.latestRecord?.correction_factor ?? 50;
-  const targetGlucose = timer.latestRecord?.target_glucose ?? 100;
+  const [showAddAlarmModal, setShowAddAlarmModal] = useState(false);
+  const [showAlarmListModal, setShowAlarmListModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [editingAlarm, setEditingAlarm] = useState<Alarm | null>(null);
   
   const insets = useSafeAreaInsets();
-  const { responsiveSize, responsiveSpacing, responsiveFontSize, getComponentSpacing, screenSize, screenHeight } = useResponsive();
-
-  useEffect(() => {
-    const setupNotifications = async () => {
-      Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: false,
-          shouldShowBanner: true,
-          shouldShowList: true,
-        }),
-      });
-
-      await Notifications.requestPermissionsAsync();
-    };
-    setupNotifications();
-  }, []);
-
-  // 타이머 완료 시 알림 전송 (hasActiveTimer로 초기 0:00 상태 제외, insulin_injected가 true이면 알림 보내지 않음)
-  useEffect(() => {
-    const shouldSendNotification = 
-      timer.remainingSeconds === 0 && 
-      timer.hasActiveTimer && 
-      !timer.notificationSent && 
-      timer.isCompleted &&
-      !timer.latestRecord?.insulin_injected; // 인슐린이 이미 주입되지 않은 경우만 알림
-
-    if (shouldSendNotification) {
-      const sendNotification = async () => {
-        try {
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: "Insulin Timer Complete",
-              body: "Your insulin timer has finished. Please check your glucose levels and prepare for your next dose.",
-              sound: true,
-              priority: Notifications.AndroidNotificationPriority.HIGH,
-            },
-            trigger: null,
-          });
-          timer.setNotificationSent(true);
-        } catch (error) {
-          console.error('Notification error:', error);
-        }
-      };
-      sendNotification();
-    }
-  }, [timer.remainingSeconds, timer.hasActiveTimer, timer.isCompleted, timer.notificationSent, timer.latestRecord?.insulin_injected, timer.setNotificationSent]);
+  const { responsiveSpacing } = useResponsive();
+  
+  // Use alarms hook
+  const {
+    alarms,
+    loading: alarmsLoading,
+    createAlarm,
+    updateAlarm,
+    deleteAlarm,
+    toggleAlarm,
+    getNextAlarm,
+  } = useAlarms(user?.id);
 
   useFocusEffect(
     useCallback(() => {
-      timer.setIsLoading(true);
-      timer.fetchLatestRecord();
+      setIsLoading(true);
       const timerTimeout = setTimeout(() => {
-        timer.setIsLoading(false);
+        setIsLoading(false);
       }, 100);
 
       return () => clearTimeout(timerTimeout);
-    }, [timer.fetchLatestRecord, timer.setIsLoading])
+    }, [])
   );
 
   // 메모이제이션된 스타일 계산
@@ -96,36 +55,104 @@ function HomeScreen() {
     
     return {
       tabBarHeight,
-      componentSpacing: getComponentSpacing,
-      horizontalPadding: responsiveSpacing(32), // px-8 = 32px
-      timerWidth: responsiveSize(280),
-      timerHeight: responsiveSize(8),
-      bottomGap: screenHeight * -0.05, // 디바이스 높이의 -10% (탭바 위로 올라감)
+      horizontalPadding: responsiveSpacing(32),
     };
-  }, [insets.bottom, getComponentSpacing, responsiveSpacing, responsiveSize, screenHeight]);
+  }, [insets.bottom, responsiveSpacing]);
 
-  const handleAddData = useCallback(() => {
+  const handleAddAlarm = useCallback(() => {
     if (!user) {
       setShowLoginModal(true);
     } else {
-      // Navigate to edit-record if there's a latest record, otherwise add-record
-      if (timer.latestRecord) {
-        router.push(`/edit-record?id=${timer.latestRecord.id}`);
-      } else {
-        router.push('/add-record');
-      }
+      setEditingAlarm(null);
+      setShowAddAlarmModal(true);
     }
-  }, [user, router, timer.latestRecord]);
+  }, [user]);
+
+  const handleViewAlarmList = useCallback(() => {
+    if (!user) {
+      setShowLoginModal(true);
+    } else {
+      setShowAlarmListModal(true);
+    }
+  }, [user]);
+
+  const handleSaveAlarm = useCallback(
+    async (alarmData: AlarmData) => {
+      try {
+        if (editingAlarm) {
+          // Update existing alarm
+          await updateAlarm({
+            id: editingAlarm.id,
+            alarmTime: alarmData.alarmTime,
+            mealType: alarmData.mealType,
+            alarmLabel: alarmData.alarmLabel,
+            isEnabled: alarmData.isEnabled,
+          });
+          toast.success('Alarm updated successfully!');
+        } else {
+          // Create new alarm
+          await createAlarm({
+            alarmTime: alarmData.alarmTime,
+            mealType: alarmData.mealType,
+            alarmLabel: alarmData.alarmLabel,
+            isEnabled: alarmData.isEnabled,
+          });
+          toast.success('Alarm created successfully!');
+        }
+      } catch (error) {
+        toast.error('Failed to save alarm');
+        console.error('Error saving alarm:', error);
+      }
+    },
+    [editingAlarm, createAlarm, updateAlarm]
+  );
+
+  const handleEditAlarmFromList = useCallback(
+    (alarm: Alarm) => {
+      setEditingAlarm(alarm);
+      setShowAlarmListModal(false);
+      setShowAddAlarmModal(true);
+    },
+    []
+  );
+
+  const handleToggleAlarm = useCallback(
+    async (alarmId: string, isEnabled: boolean) => {
+      try {
+        await toggleAlarm(alarmId, isEnabled);
+        toast.success(isEnabled ? 'Alarm enabled' : 'Alarm disabled');
+      } catch (error) {
+        toast.error('Failed to toggle alarm');
+        console.error('Error toggling alarm:', error);
+      }
+    },
+    [toggleAlarm]
+  );
+
+  const handleDeleteAlarm = useCallback(
+    async (alarmId: string) => {
+      try {
+        await deleteAlarm(alarmId);
+        toast.success('Alarm deleted successfully');
+      } catch (error) {
+        toast.error('Failed to delete alarm');
+        console.error('Error deleting alarm:', error);
+      }
+    },
+    [deleteAlarm]
+  );
+
+  const nextAlarm = useMemo(() => getNextAlarm(), [getNextAlarm]);
 
   return (
-    <PageLoader isLoading={timer.isLoading} minDuration={500}>
+    <PageLoader isLoading={isLoading} minDuration={500}>
       <ThemedView className="flex-1" style={{ paddingTop: insets.top + responsiveSpacing(20) }}>
         {/* Scrollable Content */}
         <ScrollView 
           className="flex-1"
           contentContainerStyle={{
             paddingHorizontal: styles.horizontalPadding,
-            paddingBottom: styles.tabBarHeight + responsiveSpacing(40), // 탭바 높이 + 여백
+            paddingBottom: styles.tabBarHeight + responsiveSpacing(40),
           }}
           showsVerticalScrollIndicator={false}
         >
@@ -135,24 +162,114 @@ function HomeScreen() {
           </View>
 
           <View className="items-center" style={{ paddingVertical: responsiveSpacing(16) }}>
-            <InsulinTimer 
-              totalSeconds={timer.totalSeconds}
-              remainingSeconds={timer.remainingSeconds}
-              hasActiveTimer={timer.hasActiveTimer}
-              width={styles.timerWidth}
-              height={styles.timerHeight}
-              onEdit={handleAddData}
-              onInsulinInjected={timer.markInsulinInjected}
-              bloodGlucose={bloodGlucose}
-              carbohydrates={carbohydrates}
-              insulinRatio={insulinRatio}
-              correctionFactor={correctionFactor}
-              targetGlucose={targetGlucose}
-              createdAt={timer.latestRecord?.created_at}
-              insulinInjected={timer.latestRecord?.insulin_injected || false}
+            <NextAlarmDisplay 
+              alarmTime={nextAlarm?.alarmTime}
+              mealType={nextAlarm?.mealType || 'breakfast'}
+              alarmLabel={nextAlarm?.alarmLabel}
+              isEnabled={nextAlarm?.isEnabled ?? false}
+              onEdit={() => nextAlarm && handleEditAlarmFromList(nextAlarm)}
             />
+
+            {/* Add Alarm Button */}
+            <Pressable
+              onPress={handleAddAlarm}
+              className="mt-6 w-full"
+              style={({ pressed }) => ({
+                opacity: pressed ? 0.9 : 1,
+                transform: [{ scale: pressed ? 0.98 : 1 }],
+              })}
+            >
+              <View
+                className="flex-row items-center justify-center py-5 px-6 rounded-2xl"
+                style={{
+                  backgroundColor: user ? '#2563eb' : '#cbd5e1',
+                  shadowColor: '#2563eb',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 8,
+                  elevation: 4,
+                }}
+              >
+                <View
+                  className="w-10 h-10 rounded-full items-center justify-center mr-3"
+                  style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
+                >
+                  <Plus size={24} color="#ffffff" strokeWidth={2.5} />
+                </View>
+                <ThemedText
+                  className="font-bold"
+                  style={{
+                    fontSize: 17,
+                    color: '#ffffff',
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  Add Your Alarm
+                </ThemedText>
+              </View>
+            </Pressable>
+
+            {/* View Alarm List Button */}
+            <Pressable
+              onPress={handleViewAlarmList}
+              className="mt-4 w-full"
+              style={({ pressed }) => ({
+                opacity: pressed ? 0.9 : 1,
+                transform: [{ scale: pressed ? 0.98 : 1 }],
+              })}
+            >
+              <View
+                className="flex-row items-center justify-center py-5 px-6 rounded-2xl"
+                style={{
+                  backgroundColor: '#16a34a',
+                  shadowColor: '#16a34a',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 8,
+                  elevation: 4,
+                }}
+              >
+                <View
+                  className="w-10 h-10 rounded-full items-center justify-center mr-3"
+                  style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
+                >
+                  <List size={24} color="#ffffff" strokeWidth={2.5} />
+                </View>
+                <ThemedText
+                  className="font-bold"
+                  style={{
+                    fontSize: 17,
+                    color: '#ffffff',
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  View Alarm List
+                </ThemedText>
+              </View>
+            </Pressable>
           </View>
         </ScrollView>
+
+        {/* Add Alarm Modal */}
+        <AddAlarmModal
+          visible={showAddAlarmModal}
+          onClose={() => {
+            setShowAddAlarmModal(false);
+            setEditingAlarm(null);
+          }}
+          onSave={handleSaveAlarm}
+        />
+
+        {/* Alarm List Modal */}
+        <AlarmListModal
+          visible={showAlarmListModal}
+          onClose={() => setShowAlarmListModal(false)}
+          alarms={alarms}
+          loading={alarmsLoading}
+          onToggle={handleToggleAlarm}
+          onEdit={handleEditAlarmFromList}
+          onDelete={handleDeleteAlarm}
+        />
 
         {/* Login Required Modal */}
         <Modal
