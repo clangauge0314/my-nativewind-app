@@ -10,7 +10,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, View } from 'react-native';
+import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function HomeScreen() {
@@ -92,11 +92,9 @@ function HomeScreen() {
 
   // 메모이제이션된 스타일 계산
   const styles = useMemo(() => {
-    const androidNavBarHeight = Platform.OS === 'android' ? (insets.bottom > 0 ? insets.bottom : 48) : 0;
-    const tabBarHeight = (Platform.OS === 'ios' ? 88 : 68) + androidNavBarHeight;
+    const tabBarHeight = insets.bottom + 68;
     
     return {
-      androidNavBarHeight,
       tabBarHeight,
       componentSpacing: getComponentSpacing,
       horizontalPadding: responsiveSpacing(32), // px-8 = 32px

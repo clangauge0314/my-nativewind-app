@@ -9,7 +9,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { useFocusEffect } from '@react-navigation/native';
 import { History } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Platform, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { DateData } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -111,8 +111,7 @@ export default function HistoryScreen() {
     }, [])
   );
 
-  const androidNavBarHeight = Platform.OS === 'android' ? (insets.bottom > 0 ? insets.bottom : 48) : 0;
-  const tabBarHeight = (Platform.OS === 'ios' ? 88 : 68) + androidNavBarHeight;
+  const tabBarHeight = insets.bottom + 68;
 
   if (!user) {
     return (

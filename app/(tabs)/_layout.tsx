@@ -1,7 +1,7 @@
 import { Tabs, useRouter } from 'expo-router';
 import { Activity, History, Home, User } from 'lucide-react-native';
 import React from 'react';
-import { Platform, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
@@ -34,15 +34,15 @@ export default function TabLayout() {
         },
         tabBarStyle: {
           position: 'absolute',
-          bottom: 0, // 디바이스 가장 최하단에 붙임
+          bottom: 0,
           left: 0,
           right: 0,
           backgroundColor: '#ffffff',
           borderTopWidth: 1,
           borderTopColor: '#e5e7eb',
-          paddingBottom: Platform.OS === 'ios' ? insets.bottom + 8 : insets.bottom + 8,
+          paddingBottom: insets.bottom + 8,
           paddingTop: 8,
-          height: Platform.OS === 'ios' ? insets.bottom + 88 : insets.bottom + 68,
+          height: insets.bottom + 68,
           shadowColor: '#fff',
           shadowOffset: {
             width: 0,
@@ -76,9 +76,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="tracker"
+        name="report"
         options={{
-          title: 'Tracker',
+          title: 'Report',
           tabBarIcon: ({ color }) => <Activity size={26} color={color} />,
         }}
       />
@@ -101,7 +101,7 @@ export default function TabLayout() {
       <View 
         style={{
           position: 'absolute',
-          bottom: Platform.OS === 'ios' ? insets.bottom + 88 : insets.bottom + 68,
+          bottom: insets.bottom + 68,
           left: 0,
           right: 0,
           zIndex: 99999,
