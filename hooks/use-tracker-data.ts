@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/supabase';
 import { InsulinPredictionRecord } from '@/types/health-record';
 import {
   DailyAggregate,
@@ -6,7 +5,10 @@ import {
   TimeRange,
   TrackerStats
 } from '@/types/tracker';
+import firestore from '@react-native-firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
+
+const COLLECTION_NAME = 'insulin_records';
 
 export const useTrackerData = (userId: string | undefined, timeRange: TimeRange) => {
   const [dailyAggregates, setDailyAggregates] = useState<DailyAggregate[]>([]);
@@ -35,7 +37,7 @@ export const useTrackerData = (userId: string | undefined, timeRange: TimeRange)
         break;
     }
 
-    return startDate.toISOString();
+    return startDate;
   }, [timeRange]);
 
   const calculateStats = useCallback((records: InsulinPredictionRecord[]): TrackerStats => {
@@ -143,19 +145,29 @@ export const useTrackerData = (userId: string | undefined, timeRange: TimeRange)
     setLoading(true);
     try {
       const startDate = getTimeRangeFilter();
+      
+      const snapshot = await firestore()
+        .collection(COLLECTION_NAME)
+        .where('user_id', '==', userId)
+        .where('created_at', '>=', firestore.Timestamp.fromDate(startDate))
+        .get();
 
-      const { data, error } = await supabase
-        .from('insulin_prediction_records')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('created_at', startDate)
-        .order('created_at', { ascending: true });
+      const fetchedRecords: InsulinPredictionRecord[] = snapshot.docs
+        .map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            created_at: data.created_at?.toDate()?.toISOString() || new Date().toISOString(),
+            updated_at: data.updated_at?.toDate()?.toISOString() || new Date().toISOString(),
+            injected_at: data.injected_at?.toDate()?.toISOString() || null,
+          } as InsulinPredictionRecord;
+        })
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        setDailyAggregates(processDailyAggregates(data));
-        setStats(calculateStats(data));
+      if (fetchedRecords.length > 0) {
+        setDailyAggregates(processDailyAggregates(fetchedRecords));
+        setStats(calculateStats(fetchedRecords));
       } else {
         setDailyAggregates([]);
         setStats(null);
@@ -178,4 +190,3 @@ export const useTrackerData = (userId: string | undefined, timeRange: TimeRange)
     refetch: fetchTrackerData,
   };
 };
-

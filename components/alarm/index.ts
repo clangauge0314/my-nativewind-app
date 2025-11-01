@@ -1,6 +1,4 @@
-export { AddAlarmModal } from './AddAlarmModal';
-export type { AlarmData } from './AddAlarmModal';
-export { AlarmListModal } from './AlarmListModal';
+export { AlarmActionModal } from './AlarmActionModal';
 export { NextAlarmDisplay } from './NextAlarmDisplay';
 export type { NextAlarmDisplayProps } from './NextAlarmDisplay';
 

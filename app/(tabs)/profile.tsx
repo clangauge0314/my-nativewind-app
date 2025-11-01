@@ -7,22 +7,17 @@ import { SettingsMenuItem } from '@/components/profile/SettingsMenuItem';
 import { StatsOverview } from '@/components/profile/StatsOverview';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 import { useHealthStore } from '@/stores/health-store';
+import { InsulinPredictionRecord } from '@/types/health-record';
+import firestore from '@react-native-firebase/firestore';
 import { useFocusEffect } from '@react-navigation/native';
 import {
-  Bell,
-  FileText,
-  HelpCircle,
-  Lock,
-  LogOut,
-  Moon,
-  Shield,
-  User
+  Brain,
+  LogOut
 } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { Alert, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 
@@ -48,33 +43,40 @@ export default function ProfileScreen() {
   });
   const insets = useSafeAreaInsets();
 
-  // Fetch user statistics
   useEffect(() => {
-    if (user?.id) {
+    if (user?.uid) {
       fetchUserStats();
     }
-  }, [user?.id]);
+  }, [user?.uid]);
 
   const fetchUserStats = async () => {
     try {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const { data, error } = await supabase
-        .from('insulin_prediction_records')
-        .select('*')
-        .eq('user_id', user?.id)
-        .gte('created_at', thirtyDaysAgo.toISOString());
+      const snapshot = await firestore()
+        .collection('insulin_records')
+        .where('user_id', '==', user?.uid)
+        .where('created_at', '>=', firestore.Timestamp.fromDate(thirtyDaysAgo))
+        .get();
 
-      if (error) throw error;
+      if (!snapshot.empty) {
+        const data: InsulinPredictionRecord[] = snapshot.docs.map(doc => {
+          const docData = doc.data();
+          return {
+            id: doc.id,
+            ...docData,
+            created_at: docData.created_at?.toDate()?.toISOString() || new Date().toISOString(),
+            updated_at: docData.updated_at?.toDate()?.toISOString() || new Date().toISOString(),
+          } as InsulinPredictionRecord;
+        });
 
-      if (data && data.length > 0) {
         const totalRecords = data.length;
         const avgGlucose = Math.round(
-          data.reduce((sum, r) => sum + (parseFloat(r.current_glucose) || 0), 0) / totalRecords
+          data.reduce((sum, r) => sum + (r.current_glucose || 0), 0) / totalRecords
         );
         const totalInsulin =
-          data.reduce((sum, r) => sum + (parseFloat(r.total_insulin) || 0), 0);
+          data.reduce((sum, r) => sum + (r.total_insulin || 0), 0);
         
         // Calculate unique days
         const uniqueDays = new Set(
@@ -84,7 +86,7 @@ export default function ProfileScreen() {
 
         // Calculate time in range (70-180 mg/dL)
         const inRange = data.filter(r => {
-          const glucose = parseFloat(r.current_glucose);
+          const glucose = r.current_glucose;
           return glucose >= 70 && glucose <= 180;
         }).length;
         const timeInRange = Math.round((inRange / totalRecords) * 100);
@@ -204,59 +206,11 @@ export default function ProfileScreen() {
             </ThemedText>
 
             <SettingsMenuItem
-              icon={<User size={20} color="#3b82f6" />}
-              title="Edit Profile"
-              subtitle="Update your personal information"
-              onPress={() => handleMenuItem('Edit Profile')}
-              color="#3b82f6"
-            />
-
-            <SettingsMenuItem
-              icon={<Bell size={20} color="#8b5cf6" />}
-              title="Notifications"
-              subtitle="Manage your notification preferences"
-              onPress={() => handleMenuItem('Notifications')}
+              icon={<Brain size={20} color="#8b5cf6" />}
+              title="Quiz"
+              subtitle="Test your diabetes knowledge"
+              onPress={() => handleMenuItem('Quiz')}
               color="#8b5cf6"
-            />
-
-            <SettingsMenuItem
-              icon={<Lock size={20} color="#06b6d4" />}
-              title="Privacy & Security"
-              subtitle="Control your data and security"
-              onPress={() => handleMenuItem('Privacy')}
-              color="#06b6d4"
-            />
-
-            <SettingsMenuItem
-              icon={<Moon size={20} color="#f59e0b" />}
-              title="Appearance"
-              subtitle="Customize your app theme"
-              onPress={() => handleMenuItem('Appearance')}
-              color="#f59e0b"
-            />
-
-            <SettingsMenuItem
-              icon={<FileText size={20} color="#10b981" />}
-              title="Export Data"
-              subtitle="Download your health records"
-              onPress={() => handleMenuItem('Export Data')}
-              color="#10b981"
-            />
-
-            <SettingsMenuItem
-              icon={<HelpCircle size={20} color="#6366f1" />}
-              title="Help & Support"
-              subtitle="Get help and contact support"
-              onPress={() => handleMenuItem('Help & Support')}
-              color="#6366f1"
-            />
-
-            <SettingsMenuItem
-              icon={<Shield size={20} color="#ec4899" />}
-              title="Terms & Privacy"
-              subtitle="Read our terms and privacy policy"
-              onPress={() => handleMenuItem('Terms')}
-              color="#ec4899"
             />
 
             <SettingsMenuItem
@@ -267,36 +221,6 @@ export default function ProfileScreen() {
               dangerous
             />
           </ThemedView>
-
-          {/* App Info */}
-          <View
-            className="rounded-2xl p-4 mb-6"
-            style={{
-              backgroundColor: '#f9fafb',
-              borderWidth: 1,
-              borderColor: '#e5e7eb',
-            }}
-          >
-            <ThemedText
-              className="text-center"
-              style={{
-                fontSize: 12,
-                color: '#6b7280',
-              }}
-            >
-              Diabetes Management App
-            </ThemedText>
-            <ThemedText
-              className="text-center font-semibold"
-              style={{
-                fontSize: 11,
-                color: '#9ca3af',
-                marginTop: 2,
-              }}
-            >
-              Version 1.0.0 • Made with ❤️ for better health
-            </ThemedText>
-          </View>
         </ThemedView>
       </ScrollView>
     </PageLoader>

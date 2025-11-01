@@ -29,7 +29,7 @@ export default function ReportScreen() {
   const insets = useSafeAreaInsets();
 
   // 리포트 데이터 가져오기
-  const { records, loading: dataLoading, refetch } = useReportData(user?.id, selectedRange);
+  const { records, loading: dataLoading, refetch } = useReportData(user?.uid, selectedRange);
 
   const [refreshing, setRefreshing] = useState(false);
 

@@ -1,23 +1,30 @@
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other';
+export type RepeatDay = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 
+// Database schema (snake_case)
 export interface Alarm {
   id: string;
-  userId: string;
-  alarmTime: string; // "HH:MM:SS" format
-  mealType: MealType;
-  alarmLabel: string;
-  isEnabled: boolean;
-  repeatDays: string[]; // ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
-  createdAt: string;
-  updatedAt: string;
+  user_id: string;
+  alarm_time: string; // "HH:MM:SS" format
+  meal_type: MealType;
+  alarm_label: string;
+  is_enabled: boolean;
+  repeat_days: RepeatDay[]; // ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+  notification_title?: string;
+  notification_body?: string;
+  created_at: string;
+  updated_at: string;
 }
 
+// For creating alarms (camelCase for easier use in components)
 export interface CreateAlarmInput {
   alarmTime: string;
   mealType: MealType;
-  alarmLabel: string;
+  alarmLabel?: string;
   isEnabled: boolean;
-  repeatDays?: string[];
+  repeatDays?: RepeatDay[];
+  notificationTitle?: string;
+  notificationBody?: string;
 }
 
 export interface UpdateAlarmInput extends Partial<CreateAlarmInput> {

@@ -1,6 +1,8 @@
-import { supabase } from '@/lib/supabase';
 import { ReportRecord, ReportTimeRange } from '@/types/report';
+import firestore from '@react-native-firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
+
+const COLLECTION_NAME = 'insulin_records';
 
 export const useReportData = (userId: string | undefined, timeRange: ReportTimeRange) => {
   const [records, setRecords] = useState<ReportRecord[]>([]);
@@ -13,7 +15,7 @@ export const useReportData = (userId: string | undefined, timeRange: ReportTimeR
 
     switch (timeRange) {
       case '1day':
-        startDate.setHours(0, 0, 0, 0); // 오늘 00:00:00
+        startDate.setHours(0, 0, 0, 0);
         break;
       case '1week':
         startDate.setDate(now.getDate() - 7);
@@ -29,7 +31,7 @@ export const useReportData = (userId: string | undefined, timeRange: ReportTimeR
         break;
     }
 
-    return startDate.toISOString();
+    return startDate;
   }, [timeRange]);
 
   const fetchReportData = useCallback(async () => {
@@ -43,37 +45,42 @@ export const useReportData = (userId: string | undefined, timeRange: ReportTimeR
 
     try {
       const startDate = getTimeRangeFilter();
+      
+      const snapshot = await firestore()
+        .collection(COLLECTION_NAME)
+        .where('user_id', '==', userId)
+        .where('created_at', '>=', firestore.Timestamp.fromDate(startDate))
+        .get();
 
-      const { data, error: fetchError } = await supabase
-        .from('insulin_prediction_records')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('created_at', startDate)
-        .order('created_at', { ascending: true });
-
-      if (fetchError) throw fetchError;
-
-      // 데이터 타입 변환 및 검증
-      const validRecords = (data || []).map((record, index) => ({
-        idx: index,
-        id: record.id,
-        user_id: record.user_id,
-        current_glucose: String(record.current_glucose || '0'),
-        carbohydrates: String(record.carbohydrates || '0'),
-        target_glucose: String(record.target_glucose || '100'),
-        insulin_ratio: String(record.insulin_ratio || '15'),
-        correction_factor: String(record.correction_factor || '50'),
-        carb_insulin: String(record.carb_insulin || '0'),
-        correction_insulin: String(record.correction_insulin || '0'),
-        total_insulin: String(record.total_insulin || '0'),
-        meal_type: record.meal_type || 'snack',
-        notes: record.notes,
-        created_at: record.created_at,
-        updated_at: record.updated_at,
-        timer_duration_minutes: record.timer_duration_minutes || 0,
-        insulin_injected: record.insulin_injected || false,
-        injected_at: record.injected_at,
-      })) as ReportRecord[];
+      // 데이터 타입 변환 및 검증, 클라이언트 측 정렬
+      const validRecords = snapshot.docs
+        .map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            user_id: data.user_id,
+            current_glucose: String(data.current_glucose || '0'),
+            carbohydrates: String(data.carbohydrates || '0'),
+            target_glucose: String(data.target_glucose || '100'),
+            insulin_ratio: String(data.insulin_ratio || '15'),
+            correction_factor: String(data.correction_factor || '50'),
+            carb_insulin: String(data.carb_insulin || '0'),
+            correction_insulin: String(data.correction_insulin || '0'),
+            total_insulin: String(data.total_insulin || '0'),
+            meal_type: data.meal_type || 'snack',
+            notes: data.notes,
+            created_at: data.created_at?.toDate()?.toISOString() || new Date().toISOString(),
+            updated_at: data.updated_at?.toDate()?.toISOString() || new Date().toISOString(),
+            timer_duration_minutes: data.timer_duration_minutes || 0,
+            insulin_injected: data.insulin_injected || false,
+            injected_at: data.injected_at?.toDate()?.toISOString() || null,
+          } as ReportRecord;
+        })
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        .map((record, index) => ({
+          ...record,
+          idx: index,
+        }));
 
       setRecords(validRecords);
     } catch (err) {
@@ -96,4 +103,3 @@ export const useReportData = (userId: string | undefined, timeRange: ReportTimeR
     refetch: fetchReportData,
   };
 };
-

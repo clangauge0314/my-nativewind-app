@@ -1,35 +1,38 @@
-import { supabase } from '@/lib/supabase';
 import { InsulinPredictionRecord } from '@/types/health-record';
+import firestore from '@react-native-firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
+
+const COLLECTION_NAME = 'insulin_records';
 
 export const useHistoryData = (userId: string | undefined) => {
   const [records, setRecords] = useState<InsulinPredictionRecord[]>([]);
   const [loadingRecords, setLoadingRecords] = useState(false);
-  const [datesWithRecords, setDatesWithRecords] = useState<Set<string>>(new Set());
+  const [datesWithRecords, setDatesWithRecords] = useState<Map<string, number>>(new Map());
 
-  // Fetch all records to mark dates on calendar
+  // Fetch all records to mark dates on calendar (날짜별 개수 포함)
   const fetchAllRecordDates = useCallback(async () => {
     if (!userId) return;
 
     try {
-      const { data, error } = await supabase
-        .from('insulin_prediction_records')
-        .select('created_at')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+      const snapshot = await firestore()
+        .collection(COLLECTION_NAME)
+        .where('user_id', '==', userId)
+        .get();
 
-      if (error) throw error;
-
-      if (data) {
-        const dates = new Set(
-          data.map((record) => {
-            const date = new Date(record.created_at);
-            return date.toISOString().split('T')[0];
-          })
-        );
-        setDatesWithRecords(dates);
-      }
+      // 날짜별 레코드 개수 계산
+      const dateCountMap = new Map<string, number>();
+      
+      snapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        const date = data.created_at?.toDate() || new Date();
+        const dateString = date.toISOString().split('T')[0];
+        
+        const currentCount = dateCountMap.get(dateString) || 0;
+        dateCountMap.set(dateString, currentCount + 1);
+      });
+      
+      setDatesWithRecords(dateCountMap);
     } catch (error) {
       console.error('Error fetching record dates:', error);
     }
@@ -48,17 +51,27 @@ export const useHistoryData = (userId: string | undefined) => {
       const endOfDay = new Date(date);
       endOfDay.setHours(23, 59, 59, 999);
 
-      const { data, error } = await supabase
-        .from('insulin_prediction_records')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('created_at', startOfDay.toISOString())
-        .lte('created_at', endOfDay.toISOString())
-        .order('created_at', { ascending: false });
+      const snapshot = await firestore()
+        .collection(COLLECTION_NAME)
+        .where('user_id', '==', userId)
+        .where('created_at', '>=', firestore.Timestamp.fromDate(startOfDay))
+        .where('created_at', '<=', firestore.Timestamp.fromDate(endOfDay))
+        .get();
 
-      if (error) throw error;
+      const fetchedRecords: InsulinPredictionRecord[] = snapshot.docs
+        .map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            created_at: data.created_at?.toDate()?.toISOString() || new Date().toISOString(),
+            updated_at: data.updated_at?.toDate()?.toISOString() || new Date().toISOString(),
+            injected_at: data.injected_at?.toDate()?.toISOString() || null,
+          } as InsulinPredictionRecord;
+        })
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-      setRecords(data || []);
+      setRecords(fetchedRecords);
     } catch (error: any) {
       console.error('Error fetching records:', error);
       Alert.alert('Error', 'Failed to load health records. Please try again.');
@@ -83,4 +96,3 @@ export const useHistoryData = (userId: string | undefined) => {
     setRecords,
   };
 };
-

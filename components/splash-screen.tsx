@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import Animated, {
-    Easing,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withSpring,
-    withTiming,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 
@@ -70,12 +70,12 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
       progress.value = withTiming(1, { duration: 500, easing: Easing.ease });
     }, 2500);
 
-    // 최소 3초 후 푸시 알림 및 페이드 아웃 시작
+    // 최소 3초 동안 스플래시 스크린 표시 후 페이드 아웃 시작
+    const MINIMUM_SPLASH_DURATION = 3000; // 3초
     const finishTimer = setTimeout(() => {
       setIsFinishing(true);
       
-      
-      // 페이드 아웃 애니메이션
+      // 페이드 아웃 애니메이션 (500ms)
       screenOpacity.value = withTiming(0, { 
         duration: 500,
         easing: Easing.ease 
@@ -85,7 +85,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
       setTimeout(() => {
         onFinish();
       }, 500);
-    }, 3000);
+    }, MINIMUM_SPLASH_DURATION);
 
     return () => {
       clearTimeout(timer1);
@@ -153,7 +153,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
           className="text-4xl font-bold mb-2"
           style={{ color: '#1f2937' }}
         >
-          Health Tracker
+          Health 
         </Text>
         <Text 
           className="text-sm opacity-60"

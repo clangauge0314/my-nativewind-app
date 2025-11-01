@@ -16,38 +16,42 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function HistoryScreen() {
   const user = useAuthStore((state) => state.user);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState('');
   const [expandedRecords, setExpandedRecords] = useState<Set<string>>(new Set());
   const insets = useSafeAreaInsets();
 
-  // Use history data hook
-  const {
-    records,
-    loadingRecords,
-    datesWithRecords,
-    fetchRecordsForDate,
-  } = useHistoryData(user?.id);
-
-  // Get today's date in YYYY-MM-DD format
   const today = useMemo(() => {
     const date = new Date();
     return date.toISOString().split('T')[0];
   }, []);
 
-  // Load records when date is selected
+  const [selectedDate, setSelectedDate] = useState(today);
+
+  const {
+    records,
+    loadingRecords,
+    datesWithRecords,
+    fetchRecordsForDate,
+  } = useHistoryData(user?.uid);
+
+  // 첫 로드 시 오늘 날짜의 레코드 가져오기
   useEffect(() => {
-    if (selectedDate && user) {
+    if (user?.uid && today) {
+      fetchRecordsForDate(today);
+    }
+  }, [user?.uid, today, fetchRecordsForDate]);
+
+  // 선택된 날짜가 변경될 때마다 레코드 가져오기
+  useEffect(() => {
+    if (selectedDate && user?.uid) {
       fetchRecordsForDate(selectedDate);
     }
-  }, [selectedDate, user, fetchRecordsForDate]);
+  }, [selectedDate, user?.uid, fetchRecordsForDate]);
 
-  // Handle date selection
   const onDayPress = useCallback((day: DateData) => {
     setSelectedDate(day.dateString);
-    setExpandedRecords(new Set()); // Reset expanded records when date changes
+    setExpandedRecords(new Set()); 
   }, []);
 
-  // Toggle record expansion
   const toggleRecordExpansion = useCallback((recordId: string) => {
     setExpandedRecords((prev) => {
       const newSet = new Set(prev);
@@ -60,19 +64,25 @@ export default function HistoryScreen() {
     });
   }, []);
 
-  // Marked dates configuration
   const markedDates = useMemo(() => {
     const marks: any = {};
     
-    // Mark all dates with records
-    datesWithRecords.forEach((date) => {
+    // 날짜별 레코드 개수에 따라 점 표시
+    datesWithRecords.forEach((count, date) => {
+      // 개수에 따라 점의 개수 결정 (최대 3개)
+      const dotCount = Math.min(count, 3);
+      const dots = Array.from({ length: dotCount }, (_, i) => ({
+        color: '#10b981',
+        selectedColor: '#ffffff',
+      }));
+      
       marks[date] = {
         marked: true,
-        dotColor: '#10b981',
+        dots: dots,
       };
     });
     
-    // Mark today with a blue circle
+    // 오늘 날짜 선택 표시
     marks[today] = {
       ...marks[today],
       selected: true,
@@ -80,7 +90,7 @@ export default function HistoryScreen() {
       selectedTextColor: '#ffffff',
     };
     
-    // If a different date is selected, mark it with a different color
+    // 선택된 날짜 표시
     if (selectedDate && selectedDate !== today) {
       marks[selectedDate] = {
         ...marks[selectedDate],
@@ -88,11 +98,8 @@ export default function HistoryScreen() {
         selectedColor: '#2563eb',
         selectedTextColor: '#ffffff',
       };
-      // Keep today marked but with a different style
       marks[today] = {
         ...marks[today],
-        marked: true,
-        dotColor: '#3b82f6',
         selected: false,
       };
     }
@@ -152,7 +159,6 @@ export default function HistoryScreen() {
             </ThemedText>
           </View>
 
-          {/* Calendar Section */}
           <HistoryCalendar
             today={today}
             selectedDate={selectedDate}
@@ -160,7 +166,6 @@ export default function HistoryScreen() {
             onDayPress={onDayPress}
           />
           
-          {/* History Section */}
           <View className="mb-6">
             <HistoryHeader
               selectedDate={selectedDate}

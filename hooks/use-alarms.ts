@@ -1,15 +1,17 @@
-import { supabase } from '@/lib/supabase';
 import type { Alarm, CreateAlarmInput, UpdateAlarmInput } from '@/types/alarm';
+import firestore from '@react-native-firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
 
-export function useAlarms(userId?: string) {
+const COLLECTION_NAME = 'meal_alarms';
+
+export function useAlarms(userId?: string, username?: string) {
   const [alarms, setAlarms] = useState<Alarm[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch all alarms for the user
   const fetchAlarms = useCallback(async () => {
-    if (!userId) {
+    if (!userId || !username) {
       setAlarms([]);
       return;
     }
@@ -18,55 +20,93 @@ export function useAlarms(userId?: string) {
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
-        .from('meal_alarms')
-        .select('*')
-        .eq('user_id', userId)
-        .order('alarm_time', { ascending: true });
+      const snapshot = await firestore()
+        .collection(COLLECTION_NAME)
+        .doc(username)
+        .collection('alarms')
+        .get();
 
-      if (fetchError) throw fetchError;
+      const userAlarms: Alarm[] = snapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          user_id: userId,
+          ...doc.data(),
+        } as Alarm))
+        .sort((a, b) => {
+          // 시간 순으로 정렬 (HH:MM:SS)
+          const timeA = a.alarm_time.split(':').slice(0, 2).join(':');
+          const timeB = b.alarm_time.split(':').slice(0, 2).join(':');
+          return timeA.localeCompare(timeB);
+        });
 
-      setAlarms(data || []);
+      setAlarms(userAlarms);
     } catch (err) {
       console.error('Error fetching alarms:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch alarms');
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, username]);
 
   // Create a new alarm
   const createAlarm = useCallback(
     async (input: CreateAlarmInput) => {
-      if (!userId) {
-        throw new Error('User ID is required');
+      if (!userId || !username) {
+        throw new Error('User ID and username are required');
       }
 
       try {
         setLoading(true);
         setError(null);
 
-        const newAlarm = {
-          user_id: userId,
+        // Check for duplicate alarm time
+        const snapshot = await firestore()
+          .collection(COLLECTION_NAME)
+          .doc(username)
+          .collection('alarms')
+          .get();
+
+        const existingAlarms = snapshot.docs.map(doc => doc.data());
+        const isDuplicate = existingAlarms.some(alarm => alarm.alarm_time === input.alarmTime);
+
+        if (isDuplicate) {
+          const error = new Error('An alarm with this time already exists');
+          setError(error.message);
+          throw error;
+        }
+
+        const newAlarmData = {
           alarm_time: input.alarmTime,
           meal_type: input.mealType,
-          alarm_label: input.alarmLabel,
+          alarm_label: input.alarmLabel || '',
           is_enabled: input.isEnabled,
           repeat_days: input.repeatDays || ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+          notification_title: input.notificationTitle || '',
+          notification_body: input.notificationBody || '',
+          created_at: firestore.FieldValue.serverTimestamp(),
+          updated_at: firestore.FieldValue.serverTimestamp(),
         };
 
-        const { data, error: createError } = await supabase
-          .from('meal_alarms')
-          .insert([newAlarm])
-          .select()
-          .single();
+        const docRef = await firestore()
+          .collection(COLLECTION_NAME)
+          .doc(username)
+          .collection('alarms')
+          .add(newAlarmData);
 
-        if (createError) throw createError;
+        // Get the created document
+        const docSnapshot = await docRef.get();
+        const newAlarm: Alarm = {
+          id: docRef.id,
+          user_id: userId,
+          ...docSnapshot.data(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as Alarm;
 
         // Refresh alarms list
         await fetchAlarms();
 
-        return data;
+        return newAlarm;
       } catch (err) {
         console.error('Error creating alarm:', err);
         setError(err instanceof Error ? err.message : 'Failed to create alarm');
@@ -75,22 +115,43 @@ export function useAlarms(userId?: string) {
         setLoading(false);
       }
     },
-    [userId, fetchAlarms]
+    [userId, username, fetchAlarms]
   );
 
   // Update an existing alarm
   const updateAlarm = useCallback(
     async (input: UpdateAlarmInput) => {
-      if (!userId) {
-        throw new Error('User ID is required');
+      if (!userId || !username) {
+        throw new Error('User ID and username are required');
       }
 
       try {
         setLoading(true);
         setError(null);
 
+        // Check for duplicate alarm time (only if time is being changed)
+        if (input.alarmTime !== undefined) {
+          const snapshot = await firestore()
+            .collection(COLLECTION_NAME)
+            .doc(username)
+            .collection('alarms')
+            .get();
+
+          const existingAlarms = snapshot.docs
+            .filter(doc => doc.id !== input.id) // Exclude current alarm
+            .map(doc => doc.data());
+          
+          const isDuplicate = existingAlarms.some(alarm => alarm.alarm_time === input.alarmTime);
+
+          if (isDuplicate) {
+            const error = new Error('An alarm with this time already exists');
+            setError(error.message);
+            throw error;
+          }
+        }
+
         const updateData: any = {
-          updated_at: new Date().toISOString(),
+          updated_at: firestore.FieldValue.serverTimestamp(),
         };
 
         if (input.alarmTime !== undefined) updateData.alarm_time = input.alarmTime;
@@ -98,21 +159,34 @@ export function useAlarms(userId?: string) {
         if (input.alarmLabel !== undefined) updateData.alarm_label = input.alarmLabel;
         if (input.isEnabled !== undefined) updateData.is_enabled = input.isEnabled;
         if (input.repeatDays !== undefined) updateData.repeat_days = input.repeatDays;
+        if (input.notificationTitle !== undefined) updateData.notification_title = input.notificationTitle;
+        if (input.notificationBody !== undefined) updateData.notification_body = input.notificationBody;
 
-        const { data, error: updateError } = await supabase
-          .from('meal_alarms')
-          .update(updateData)
-          .eq('id', input.id)
-          .eq('user_id', userId)
-          .select()
-          .single();
+        await firestore()
+          .collection(COLLECTION_NAME)
+          .doc(username)
+          .collection('alarms')
+          .doc(input.id)
+          .update(updateData);
 
-        if (updateError) throw updateError;
+        // Get the updated document
+        const docSnapshot = await firestore()
+          .collection(COLLECTION_NAME)
+          .doc(username)
+          .collection('alarms')
+          .doc(input.id)
+          .get();
+
+        const updatedAlarm: Alarm = {
+          id: input.id,
+          user_id: userId,
+          ...docSnapshot.data(),
+        } as Alarm;
 
         // Refresh alarms list
         await fetchAlarms();
 
-        return data;
+        return updatedAlarm;
       } catch (err) {
         console.error('Error updating alarm:', err);
         setError(err instanceof Error ? err.message : 'Failed to update alarm');
@@ -121,27 +195,26 @@ export function useAlarms(userId?: string) {
         setLoading(false);
       }
     },
-    [userId, fetchAlarms]
+    [userId, username, fetchAlarms]
   );
 
   // Delete an alarm
   const deleteAlarm = useCallback(
     async (alarmId: string) => {
-      if (!userId) {
-        throw new Error('User ID is required');
+      if (!userId || !username) {
+        throw new Error('User ID and username are required');
       }
 
       try {
         setLoading(true);
         setError(null);
 
-        const { error: deleteError } = await supabase
-          .from('meal_alarms')
-          .delete()
-          .eq('id', alarmId)
-          .eq('user_id', userId);
-
-        if (deleteError) throw deleteError;
+        await firestore()
+          .collection(COLLECTION_NAME)
+          .doc(username)
+          .collection('alarms')
+          .doc(alarmId)
+          .delete();
 
         // Refresh alarms list
         await fetchAlarms();
@@ -153,7 +226,7 @@ export function useAlarms(userId?: string) {
         setLoading(false);
       }
     },
-    [userId, fetchAlarms]
+    [userId, username, fetchAlarms]
   );
 
   // Toggle alarm enabled status
@@ -164,30 +237,99 @@ export function useAlarms(userId?: string) {
     [updateAlarm]
   );
 
-  // Get next upcoming alarm
+  // Get next upcoming alarm (가장 가까운 다음 알람)
   const getNextAlarm = useCallback(() => {
     const now = new Date();
     const currentTime = now.getHours() * 60 + now.getMinutes();
 
-    const enabledAlarms = alarms.filter((alarm) => alarm.isEnabled);
+    const enabledAlarms = alarms.filter((alarm) => alarm.is_enabled);
     if (enabledAlarms.length === 0) return null;
 
-    // Find the next alarm today or tomorrow
-    let nextAlarm = enabledAlarms.find((alarm) => {
-      const [hours, minutes] = alarm.alarmTime.split(':').map(Number);
+    // 오늘 남은 알람 찾기
+    const todayFutureAlarms = enabledAlarms.filter((alarm) => {
+      const [hours, minutes] = alarm.alarm_time.split(':').map(Number);
       const alarmTime = hours * 60 + minutes;
       return alarmTime > currentTime;
     });
 
-    // If no alarm found today, get the first alarm of tomorrow
-    if (!nextAlarm && enabledAlarms.length > 0) {
-      nextAlarm = enabledAlarms[0];
+    // 오늘 남은 알람이 있으면 가장 가까운 것 반환
+    if (todayFutureAlarms.length > 0) {
+      const nextAlarm = todayFutureAlarms[0];
+      return {
+        alarmTime: nextAlarm.alarm_time,
+        mealType: nextAlarm.meal_type,
+        alarmLabel: nextAlarm.alarm_label,
+      };
     }
 
-    return nextAlarm || null;
+    // 오늘 남은 알람 없으면 내일의 첫 번째 알람 반환
+    if (enabledAlarms.length > 0) {
+      const nextAlarm = enabledAlarms[0];
+      return {
+        alarmTime: nextAlarm.alarm_time,
+        mealType: nextAlarm.meal_type,
+        alarmLabel: nextAlarm.alarm_label,
+      };
+    }
+
+    return null;
   }, [alarms]);
 
-  // Fetch alarms on mount and when userId changes
+  // Get the alarm after the next one (그 다음 알람)
+  const getSecondNextAlarm = useCallback(() => {
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+
+    const enabledAlarms = alarms.filter((alarm) => alarm.is_enabled);
+    if (enabledAlarms.length === 0) return null;
+
+    // 오늘 남은 알람 찾기
+    const todayFutureAlarms = enabledAlarms.filter((alarm) => {
+      const [hours, minutes] = alarm.alarm_time.split(':').map(Number);
+      const alarmTime = hours * 60 + minutes;
+      return alarmTime > currentTime;
+    });
+
+    // 오늘 남은 알람이 2개 이상: 두 번째 알람 반환
+    if (todayFutureAlarms.length >= 2) {
+      const secondAlarm = todayFutureAlarms[1];
+      return {
+        alarmTime: secondAlarm.alarm_time,
+        mealType: secondAlarm.meal_type,
+        alarmLabel: secondAlarm.alarm_label,
+      };
+    }
+
+    // 오늘 남은 알람이 1개: 내일의 첫 번째 알람 반환
+    if (todayFutureAlarms.length === 1 && enabledAlarms.length >= 1) {
+      // 다음 알람을 찾아서 그 다음 것 반환
+      const currentNextAlarm = todayFutureAlarms[0];
+      const nextIndex = enabledAlarms.findIndex(a => a.id === currentNextAlarm.id);
+      const secondIndex = (nextIndex + 1) % enabledAlarms.length;
+      const secondAlarm = enabledAlarms[secondIndex];
+      
+      return {
+        alarmTime: secondAlarm.alarm_time,
+        mealType: secondAlarm.meal_type,
+        alarmLabel: secondAlarm.alarm_label,
+      };
+    }
+
+    // 오늘 남은 알람 없음: 내일의 두 번째 알람 반환
+    if (todayFutureAlarms.length === 0 && enabledAlarms.length >= 2) {
+      const secondAlarm = enabledAlarms[1];
+      return {
+        alarmTime: secondAlarm.alarm_time,
+        mealType: secondAlarm.meal_type,
+        alarmLabel: secondAlarm.alarm_label,
+      };
+    }
+
+    // 알람이 1개뿐이면 null 반환
+    return null;
+  }, [alarms]);
+
+  // Fetch alarms on mount and when userId/username changes
   useEffect(() => {
     fetchAlarms();
   }, [fetchAlarms]);
@@ -202,6 +344,6 @@ export function useAlarms(userId?: string) {
     deleteAlarm,
     toggleAlarm,
     getNextAlarm,
+    getSecondNextAlarm,
   };
 }
-

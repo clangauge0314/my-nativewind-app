@@ -17,8 +17,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: '#6b7280',
         headerShown: false,
         tabBarButton: HapticTab,
-        tabBarShowLabel: false, // Hide tab labels
-        // Background color for page transitions (prevents black flash)
+        tabBarShowLabel: false, 
         sceneStyle: {
           backgroundColor: '#ffffff',
         },
@@ -48,7 +47,6 @@ export default function TabLayout() {
         tabBarItemStyle: {
           paddingVertical: 4,
         },
-        // Page transition animation
         animation: 'shift',
       }}>
       <Tabs.Screen

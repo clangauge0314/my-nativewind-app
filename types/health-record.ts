@@ -9,7 +9,6 @@ export interface InsulinPredictionRecord {
   carb_insulin: number;
   correction_insulin: number;
   total_insulin: number;
-  timer_duration_minutes: number;
   insulin_injected: boolean;
   injected_at?: string;
   meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other';
@@ -34,8 +33,6 @@ export interface InsulinPredictionFormData {
   targetGlucose: string;
   insulinRatio: string;
   correctionFactor: string;
-  timerDuration: string;
-  isCustomTimer: boolean;
   mealType: string;
   notes: string;
 }

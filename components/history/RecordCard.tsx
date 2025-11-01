@@ -109,13 +109,6 @@ export const RecordCard = React.memo(function RecordCard({
               </ThemedText>
             </View>
 
-            {/* Timer Duration */}
-            <View className="flex-1 bg-gray-50 rounded-lg p-3 min-w-[45%]">
-              <ThemedText className="text-xs text-gray-500 mb-1">Timer Duration</ThemedText>
-              <ThemedText className="text-lg font-bold text-gray-900">
-                {record.timer_duration_minutes} <ThemedText className="text-xs text-gray-500">min</ThemedText>
-              </ThemedText>
-            </View>
           </View>
 
           {/* Calculation Breakdown */}

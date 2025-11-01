@@ -1,55 +1,47 @@
-import { AddAlarmModal, AlarmData, AlarmListModal, NextAlarmDisplay } from '@/components/alarm';
+import { NextAlarmDisplay } from '@/components/alarm';
 import { UserHeader } from '@/components/home/user-header';
 import { PageLoader } from '@/components/page-loader';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { DigitalClock } from '@/components/ui/digital-clock';
 import { useAlarms } from '@/hooks/use-alarms';
 import { useResponsive } from '@/hooks/use-responsive';
 import { useAuthStore } from '@/stores/auth-store';
-import type { Alarm } from '@/types/alarm';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { List, Plus } from 'lucide-react-native';
+import { List } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { toast } from 'sonner-native';
 
 function HomeScreen() {
   const user = useAuthStore((state) => state.user);
   const router = useRouter();
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showAddAlarmModal, setShowAddAlarmModal] = useState(false);
-  const [showAlarmListModal, setShowAlarmListModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [editingAlarm, setEditingAlarm] = useState<Alarm | null>(null);
   
   const insets = useSafeAreaInsets();
   const { responsiveSpacing } = useResponsive();
   
-  // Use alarms hook
-  const {
-    alarms,
-    loading: alarmsLoading,
-    createAlarm,
-    updateAlarm,
-    deleteAlarm,
-    toggleAlarm,
-    getNextAlarm,
-  } = useAlarms(user?.id);
+  const { alarms, getNextAlarm, getSecondNextAlarm, fetchAlarms } = useAlarms(user?.uid, user?.email || undefined);
 
   useFocusEffect(
     useCallback(() => {
       setIsLoading(true);
+      
+      // 화면이 focus될 때마다 알람 새로고침
+      if (user?.uid && user?.email) {
+        fetchAlarms();
+      }
+      
       const timerTimeout = setTimeout(() => {
         setIsLoading(false);
       }, 100);
 
       return () => clearTimeout(timerTimeout);
-    }, [])
+    }, [user?.uid, user?.email, fetchAlarms])
   );
 
-  // 메모이제이션된 스타일 계산
   const styles = useMemo(() => {
     const tabBarHeight = insets.bottom + 68;
     
@@ -63,91 +55,24 @@ function HomeScreen() {
     if (!user) {
       setShowLoginModal(true);
     } else {
-      setEditingAlarm(null);
-      setShowAddAlarmModal(true);
+      router.push('/add-alarm');
     }
-  }, [user]);
+  }, [user, router]);
 
   const handleViewAlarmList = useCallback(() => {
     if (!user) {
       setShowLoginModal(true);
     } else {
-      setShowAlarmListModal(true);
+      router.push('/alarm-list');
     }
-  }, [user]);
+  }, [user, router]);
 
-  const handleSaveAlarm = useCallback(
-    async (alarmData: AlarmData) => {
-      try {
-        if (editingAlarm) {
-          // Update existing alarm
-          await updateAlarm({
-            id: editingAlarm.id,
-            alarmTime: alarmData.alarmTime,
-            mealType: alarmData.mealType,
-            alarmLabel: alarmData.alarmLabel,
-            isEnabled: alarmData.isEnabled,
-          });
-          toast.success('Alarm updated successfully!');
-        } else {
-          // Create new alarm
-          await createAlarm({
-            alarmTime: alarmData.alarmTime,
-            mealType: alarmData.mealType,
-            alarmLabel: alarmData.alarmLabel,
-            isEnabled: alarmData.isEnabled,
-          });
-          toast.success('Alarm created successfully!');
-        }
-      } catch (error) {
-        toast.error('Failed to save alarm');
-        console.error('Error saving alarm:', error);
-      }
-    },
-    [editingAlarm, createAlarm, updateAlarm]
-  );
-
-  const handleEditAlarmFromList = useCallback(
-    (alarm: Alarm) => {
-      setEditingAlarm(alarm);
-      setShowAlarmListModal(false);
-      setShowAddAlarmModal(true);
-    },
-    []
-  );
-
-  const handleToggleAlarm = useCallback(
-    async (alarmId: string, isEnabled: boolean) => {
-      try {
-        await toggleAlarm(alarmId, isEnabled);
-        toast.success(isEnabled ? 'Alarm enabled' : 'Alarm disabled');
-      } catch (error) {
-        toast.error('Failed to toggle alarm');
-        console.error('Error toggling alarm:', error);
-      }
-    },
-    [toggleAlarm]
-  );
-
-  const handleDeleteAlarm = useCallback(
-    async (alarmId: string) => {
-      try {
-        await deleteAlarm(alarmId);
-        toast.success('Alarm deleted successfully');
-      } catch (error) {
-        toast.error('Failed to delete alarm');
-        console.error('Error deleting alarm:', error);
-      }
-    },
-    [deleteAlarm]
-  );
-
-  const nextAlarm = useMemo(() => getNextAlarm(), [getNextAlarm]);
+  const nextAlarm = useMemo(() => getNextAlarm(), [getNextAlarm, alarms]);
+  const secondNextAlarm = useMemo(() => getSecondNextAlarm(), [getSecondNextAlarm, alarms]);
 
   return (
     <PageLoader isLoading={isLoading} minDuration={500}>
       <ThemedView className="flex-1" style={{ paddingTop: insets.top + responsiveSpacing(20) }}>
-        {/* Scrollable Content */}
         <ScrollView 
           className="flex-1"
           contentContainerStyle={{
@@ -156,23 +81,67 @@ function HomeScreen() {
           }}
           showsVerticalScrollIndicator={false}
         >
-          {/* User Header */}
           <View style={{ marginBottom: responsiveSpacing(8) }}>
             <UserHeader />
           </View>
 
-          <View className="items-center" style={{ paddingVertical: responsiveSpacing(16) }}>
+          {/* 디지털 시계 */}
+          <View 
+            className="mt-4 mb-3 px-6 py-5 rounded-3xl"
+            style={{ 
+              backgroundColor: '#ffffff',
+              borderWidth: 0,
+              shadowColor: '#2563eb',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.08,
+              shadowRadius: 12,
+              elevation: 3,
+            }}
+          >
+            <View className="flex-row items-center justify-between">
+              <View>
+                <ThemedText 
+                  style={{ 
+                    fontSize: 13, 
+                    color: '#6b7280', 
+                    fontWeight: '600',
+                    marginBottom: 10,
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  CURRENT TIME
+                </ThemedText>
+                <DigitalClock showSeconds={true} showDate={false} size="large" />
+              </View>
+            </View>
+          </View>
+          
+          <View style={{ paddingVertical: responsiveSpacing(8) }}>
             <NextAlarmDisplay 
               alarmTime={nextAlarm?.alarmTime}
               mealType={nextAlarm?.mealType || 'breakfast'}
               alarmLabel={nextAlarm?.alarmLabel}
-              isEnabled={nextAlarm?.isEnabled ?? false}
-              onEdit={() => nextAlarm && handleEditAlarmFromList(nextAlarm)}
+              isEnabled={true}
+              onEdit={() => router.push('/alarm-list')}
             />
 
-            {/* Add Alarm Button */}
+            <View 
+              className="mt-6 px-4 py-3 rounded-xl flex-row items-center justify-between"
+              style={{ backgroundColor: '#f9fafb' }}
+            >
+              <ThemedText style={{ fontSize: 14, color: '#6b7280', fontWeight: '500' }}>
+                Following Alarm
+              </ThemedText>
+              <ThemedText style={{ fontSize: 14, color: '#1f2937', fontWeight: '600' }}>
+                {secondNextAlarm?.alarmTime 
+                  ? `${secondNextAlarm.alarmTime.substring(0, 5)} • ${secondNextAlarm.alarmLabel || 'Alarm'}`
+                  : 'No more alarms'}
+              </ThemedText>
+            </View>
+
+            <View className="items-center">
             <Pressable
-              onPress={handleAddAlarm}
+              onPress={handleViewAlarmList}
               className="mt-6 w-full"
               style={({ pressed }) => ({
                 opacity: pressed ? 0.9 : 1,
@@ -182,47 +151,8 @@ function HomeScreen() {
               <View
                 className="flex-row items-center justify-center py-5 px-6 rounded-2xl"
                 style={{
-                  backgroundColor: user ? '#2563eb' : '#cbd5e1',
+                  backgroundColor: '#2563eb',
                   shadowColor: '#2563eb',
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.2,
-                  shadowRadius: 8,
-                  elevation: 4,
-                }}
-              >
-                <View
-                  className="w-10 h-10 rounded-full items-center justify-center mr-3"
-                  style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
-                >
-                  <Plus size={24} color="#ffffff" strokeWidth={2.5} />
-                </View>
-                <ThemedText
-                  className="font-bold"
-                  style={{
-                    fontSize: 17,
-                    color: '#ffffff',
-                    letterSpacing: 0.3,
-                  }}
-                >
-                  Add Your Alarm
-                </ThemedText>
-              </View>
-            </Pressable>
-
-            {/* View Alarm List Button */}
-            <Pressable
-              onPress={handleViewAlarmList}
-              className="mt-4 w-full"
-              style={({ pressed }) => ({
-                opacity: pressed ? 0.9 : 1,
-                transform: [{ scale: pressed ? 0.98 : 1 }],
-              })}
-            >
-              <View
-                className="flex-row items-center justify-center py-5 px-6 rounded-2xl"
-                style={{
-                  backgroundColor: '#16a34a',
-                  shadowColor: '#16a34a',
                   shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: 0.2,
                   shadowRadius: 8,
@@ -247,31 +177,10 @@ function HomeScreen() {
                 </ThemedText>
               </View>
             </Pressable>
+            </View>
           </View>
         </ScrollView>
 
-        {/* Add Alarm Modal */}
-        <AddAlarmModal
-          visible={showAddAlarmModal}
-          onClose={() => {
-            setShowAddAlarmModal(false);
-            setEditingAlarm(null);
-          }}
-          onSave={handleSaveAlarm}
-        />
-
-        {/* Alarm List Modal */}
-        <AlarmListModal
-          visible={showAlarmListModal}
-          onClose={() => setShowAlarmListModal(false)}
-          alarms={alarms}
-          loading={alarmsLoading}
-          onToggle={handleToggleAlarm}
-          onEdit={handleEditAlarmFromList}
-          onDelete={handleDeleteAlarm}
-        />
-
-        {/* Login Required Modal */}
         <Modal
           visible={showLoginModal}
           transparent={true}
