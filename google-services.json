@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "383654686289",
+    "project_id": "react-native-1-5f056",
+    "storage_bucket": "react-native-1-5f056.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:383654686289:android:987c0da8c6839471f25270",
+        "android_client_info": {
+          "package_name": "com.mynativewindapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAqmZ1OPYRgs-SCP1WelBP_G4WfLVeZOOY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
