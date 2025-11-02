@@ -10,15 +10,23 @@ import { ThemedView } from '@/components/themed-view';
 import { useAuthStore } from '@/stores/auth-store';
 import { useHealthStore } from '@/stores/health-store';
 import { InsulinPredictionRecord } from '@/types/health-record';
+import {
+  checkGoogleServicesJson,
+  checkSHAFingerprints,
+  debugFirebaseConfig,
+  runFullDiagnostics,
+  testFirebaseConnection
+} from '@/utils/firebase-debug';
 import firestore from '@react-native-firebase/firestore';
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import {
   Brain,
+  Bug,
   LogOut
 } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView } from 'react-native';
+import { Alert, ScrollView, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 
@@ -225,6 +233,113 @@ export default function ProfileScreen() {
               onPress={handleLogout}
               dangerous
             />
+          </ThemedView>
+
+          {/* Developer Tools - Firebase Debugging */}
+          <ThemedView className="mb-6">
+            <ThemedText className="font-bold mb-3 px-1" style={{ fontSize: 18 }}>
+              🔧 Developer Tools
+            </ThemedText>
+
+            <View
+              className="rounded-2xl p-4 mb-3"
+              style={{
+                backgroundColor: '#fef3c7',
+                borderWidth: 1,
+                borderColor: '#fde68a',
+              }}
+            >
+              <View className="flex-row items-center mb-3">
+                <Bug size={20} color="#92400e" />
+                <ThemedText className="font-bold ml-2" style={{ color: '#92400e' }}>
+                  Firebase Diagnostics
+                </ThemedText>
+              </View>
+              
+              <ThemedText className="mb-3" style={{ fontSize: 13, color: '#92400e' }}>
+                Use these tools to debug Firebase authentication issues in production builds
+              </ThemedText>
+
+              {/* Debug Buttons */}
+              <View className="space-y-2">
+                <TouchableOpacity
+                  onPress={runFullDiagnostics}
+                  style={{
+                    backgroundColor: '#3b82f6',
+                    paddingVertical: 10,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                    marginBottom: 8,
+                  }}
+                >
+                  <ThemedText style={{ color: '#ffffff', fontWeight: '600', textAlign: 'center' }}>
+                    🔍 Run Full Diagnostics
+                  </ThemedText>
+                </TouchableOpacity>
+
+                <View className="flex-row space-x-2" style={{ gap: 8 }}>
+                  <TouchableOpacity
+                    onPress={debugFirebaseConfig}
+                    style={{
+                      flex: 1,
+                      backgroundColor: '#10b981',
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      borderRadius: 8,
+                    }}
+                  >
+                    <ThemedText style={{ color: '#ffffff', fontSize: 12, textAlign: 'center' }}>
+                      Config
+                    </ThemedText>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={testFirebaseConnection}
+                    style={{
+                      flex: 1,
+                      backgroundColor: '#10b981',
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      borderRadius: 8,
+                    }}
+                  >
+                    <ThemedText style={{ color: '#ffffff', fontSize: 12, textAlign: 'center' }}>
+                      Test
+                    </ThemedText>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={checkGoogleServicesJson}
+                    style={{
+                      flex: 1,
+                      backgroundColor: '#10b981',
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      borderRadius: 8,
+                    }}
+                  >
+                    <ThemedText style={{ color: '#ffffff', fontSize: 12, textAlign: 'center' }}>
+                      JSON
+                    </ThemedText>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={checkSHAFingerprints}
+                    style={{
+                      flex: 1,
+                      backgroundColor: '#10b981',
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      borderRadius: 8,
+                    }}
+                  >
+                    <ThemedText style={{ color: '#ffffff', fontSize: 12, textAlign: 'center' }}>
+                      SHA
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
           </ThemedView>
         </ThemedView>
       </ScrollView>
