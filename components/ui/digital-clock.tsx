@@ -7,12 +7,14 @@ interface DigitalClockProps {
   showSeconds?: boolean;
   showDate?: boolean;
   size?: 'small' | 'medium' | 'large';
+  timezone?: string; // e.g., 'Asia/Bangkok', 'America/New_York'
 }
 
 export function DigitalClock({ 
   showSeconds = true, 
   showDate = false,
-  size = 'medium' 
+  size = 'medium',
+  timezone = 'Asia/Bangkok' // Default to Thailand time
 }: DigitalClockProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -25,30 +27,38 @@ export function DigitalClock({
   }, []);
 
   const formatTime = (date: Date) => {
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const seconds = date.getSeconds();
+    // Use Intl API for reliable timezone conversion
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
     
-    const hour12 = hours % 12 || 12;
-    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const parts = formatter.formatToParts(date);
+    const hour = parts.find(p => p.type === 'hour')?.value || '12';
+    const minute = parts.find(p => p.type === 'minute')?.value || '00';
+    const second = parts.find(p => p.type === 'second')?.value || '00';
+    const dayPeriod = parts.find(p => p.type === 'dayPeriod')?.value || 'AM';
     
     const timeString = showSeconds
-      ? `${hour12}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')} ${ampm}`
-      : `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+      ? `${hour}:${minute}:${second} ${dayPeriod}`
+      : `${hour}:${minute} ${dayPeriod}`;
     
     return timeString;
   };
 
   const formatDate = (date: Date) => {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
     
-    const dayName = days[date.getDay()];
-    const monthName = months[date.getMonth()];
-    const day = date.getDate();
-    const year = date.getFullYear();
-    
-    return `${dayName}, ${monthName} ${day}, ${year}`;
+    return formatter.format(date);
   };
 
   const getSizeStyles = () => {

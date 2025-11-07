@@ -33,10 +33,17 @@ const parseDate = (dateStr: string): Date => {
 };
 
 /**
- * 날짜를 YYYY-MM-DD 형식으로 포맷
+ * 날짜를 YYYY-MM-DD 형식으로 포맷 (Thailand timezone)
  */
 export const formatDate = (date: Date): string => {
-  return date.toISOString().split('T')[0];
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  
+  return formatter.format(date);
 };
 
 /**

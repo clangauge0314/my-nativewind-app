@@ -5,6 +5,7 @@ import {
   TimeRange,
   TrackerStats
 } from '@/types/tracker';
+import { getDateStringInTimezone } from '@/utils/timezone';
 import firestore from '@react-native-firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -102,7 +103,7 @@ export const useTrackerData = (userId: string | undefined, timeRange: TimeRange)
     const dailyMap = new Map<string, InsulinPredictionRecord[]>();
 
     records.forEach(record => {
-      const date = new Date(record.created_at).toISOString().split('T')[0];
+      const date = getDateStringInTimezone(new Date(record.created_at), 'Asia/Bangkok');
       if (!dailyMap.has(date)) {
         dailyMap.set(date, []);
       }

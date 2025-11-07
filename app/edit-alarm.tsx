@@ -378,7 +378,7 @@ export default function EditAlarmScreen() {
                   <ChevronLeft size={24} color="#2563eb" strokeWidth={2} />
                 </Pressable>
                 <TextInput
-                  value={selectedHour.toString().padStart(2, '0')}
+                  value={selectedHour.toString()}
                   onChangeText={handleHourChange}
                   keyboardType="number-pad"
                   maxLength={2}
@@ -414,7 +414,7 @@ export default function EditAlarmScreen() {
                   <ChevronLeft size={24} color="#2563eb" strokeWidth={2} />
                 </Pressable>
                 <TextInput
-                  value={selectedMinute.toString().padStart(2, '0')}
+                  value={selectedMinute.toString()}
                   onChangeText={handleMinuteChange}
                   keyboardType="number-pad"
                   maxLength={2}
@@ -450,7 +450,7 @@ export default function EditAlarmScreen() {
                   <ChevronLeft size={24} color="#2563eb" strokeWidth={2} />
                 </Pressable>
                 <TextInput
-                  value={selectedSecond.toString().padStart(2, '0')}
+                  value={selectedSecond.toString()}
                   onChangeText={handleSecondChange}
                   keyboardType="number-pad"
                   maxLength={2}

@@ -1,4 +1,5 @@
 import { InsulinPredictionRecord } from '@/types/health-record';
+import { getDateStringInTimezone, getDayBoundsInTimezone } from '@/utils/timezone';
 import firestore from '@react-native-firebase/firestore';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
@@ -26,7 +27,8 @@ export const useHistoryData = (userId: string | undefined) => {
       snapshot.docs.forEach((doc) => {
         const data = doc.data();
         const date = data.created_at?.toDate() || new Date();
-        const dateString = date.toISOString().split('T')[0];
+        // Convert to Thailand timezone date string
+        const dateString = getDateStringInTimezone(date, 'Asia/Bangkok');
         
         const currentCount = dateCountMap.get(dateString) || 0;
         dateCountMap.set(dateString, currentCount + 1);
@@ -44,12 +46,8 @@ export const useHistoryData = (userId: string | undefined) => {
 
     setLoadingRecords(true);
     try {
-      // Get start and end of the selected day
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
+      // Get start and end of the selected day in Thailand timezone
+      const { startOfDay, endOfDay } = getDayBoundsInTimezone(date, 'Asia/Bangkok');
 
       const snapshot = await firestore()
         .collection(COLLECTION_NAME)

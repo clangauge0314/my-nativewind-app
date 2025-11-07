@@ -2,7 +2,6 @@ import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
-// 알림 채널 생성 (Android)
 export function useNotificationChannel() {
   useEffect(() => {
     if (Platform.OS === 'android') {
@@ -12,7 +11,6 @@ export function useNotificationChannel() {
 
   const createNotificationChannel = async () => {
     try {
-      // 기본 채널 (expo-notifications용)
       await Notifications.setNotificationChannelAsync('default', {
         name: 'Default',
         description: 'Default notification channel',
@@ -27,7 +25,6 @@ export function useNotificationChannel() {
         showBadge: true,
       });
 
-      // 식사 알람 채널 (헤드업 알림)
       await Notifications.setNotificationChannelAsync('meal_alarms', {
         name: 'Meal Alarms',
         description: 'Important meal time reminders - shows on screen',

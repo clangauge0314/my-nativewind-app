@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useHistoryData } from '@/hooks/use-history-data';
 import { useAuthStore } from '@/stores/auth-store';
+import { getTodayInTimezone } from '@/utils/timezone';
 import { useFocusEffect } from '@react-navigation/native';
 import { History } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -20,8 +21,8 @@ export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
 
   const today = useMemo(() => {
-    const date = new Date();
-    return date.toISOString().split('T')[0];
+    // Use Thailand timezone (UTC+7)
+    return getTodayInTimezone('Asia/Bangkok');
   }, []);
 
   const [selectedDate, setSelectedDate] = useState(today);
