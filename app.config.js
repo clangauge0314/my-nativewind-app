@@ -1,6 +1,6 @@
 module.exports = {
   expo: {
-    name: "my-nativewind-app",
+    name: "DiaBeats",
     slug: "my-nativewind-app",
     version: "1.0.0",
     orientation: "portrait",
@@ -13,12 +13,11 @@ module.exports = {
     },
     android: {
       package: "com.mynativewindapp",
-      versionCode: 1,
+      versionCode: 2,
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON, 
       adaptiveIcon: {
-        backgroundColor: "#E6F4FE",
+        backgroundColor: "#A596E3",
         foregroundImage: "./assets/images/android-icon-foreground.png",
-        backgroundImage: "./assets/images/android-icon-background.png",
         monochromeImage: "./assets/images/android-icon-monochrome.png"
       },
       edgeToEdgeEnabled: false,

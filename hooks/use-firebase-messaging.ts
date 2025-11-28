@@ -1,9 +1,10 @@
 import firestore from '@react-native-firebase/firestore';
 import messaging, { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
+import { Audio } from 'expo-av';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 
-// 알림 핸들러 설정
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -19,7 +20,6 @@ export function useFirebaseMessaging(userId?: string, userEmail?: string) {
   const [notification, setNotification] = useState<FirebaseMessagingTypes.RemoteMessage | null>(null);
   const [notificationTapped, setNotificationTapped] = useState<FirebaseMessagingTypes.RemoteMessage | null>(null);
 
-  // FCM 토큰을 Firestore에 저장
   const saveTokenToFirestore = async (token: string, userId: string, userEmail: string) => {
     try {
       await firestore()
@@ -35,17 +35,13 @@ export function useFirebaseMessaging(userId?: string, userEmail?: string) {
     }
   };
 
-  // FCM 토큰 가져오기
   const getToken = async () => {
     try {
       const token = await messaging().getToken();
       setFcmToken(token);
-      
-      // Firestore에 토큰 저장
       if (userId && userEmail) {
         await saveTokenToFirestore(token, userId, userEmail);
       }
-      
       return token;
     } catch (error) {
       console.error('Error getting FCM token:', error);
@@ -53,11 +49,18 @@ export function useFirebaseMessaging(userId?: string, userEmail?: string) {
     }
   };
 
-  // 포그라운드 메시지 처리
   const onMessageReceived = async (message: FirebaseMessagingTypes.RemoteMessage) => {
     setNotification(message);
-    
-    // 포그라운드에서는 수동으로 헤드업 알림 표시
+    if (Platform.OS === 'android') {
+      try {
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: 'asset:/alarm_sound.mp3' },
+          { shouldPlay: true, volume: 1.0 }
+        );
+      } catch (error) {
+        console.error('Error playing custom sound:', error);
+      }
+    }
     try {
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -80,26 +83,19 @@ export function useFirebaseMessaging(userId?: string, userEmail?: string) {
     }
   };
 
-  // FCM 알림 권한 요청
   const requestPermission = async () => {
     try {
-      // Expo Notifications 권한 요청
       const { status: expoStatus } = await Notifications.requestPermissionsAsync();
-      
       if (expoStatus !== 'granted') {
         return false;
       }
-
-      // FCM 권한 요청
       const authStatus = await messaging().requestPermission();
       const enabled =
         authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
         authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-
       if (enabled) {
         await getToken();
       }
-
       return enabled;
     } catch (error) {
       console.error('Error requesting permissions:', error);
@@ -107,23 +103,18 @@ export function useFirebaseMessaging(userId?: string, userEmail?: string) {
     }
   };
 
-  // 초기화
   useEffect(() => {
     if (!userId || !userEmail) return;
 
-    // 권한 요청 및 토큰 가져오기
     requestPermission();
 
-    // 포그라운드 메시지 리스너
     const unsubscribeOnMessage = messaging().onMessage(onMessageReceived);
 
-    // 토큰 갱신 리스너
     const unsubscribeOnTokenRefresh = messaging().onTokenRefresh(async (token) => {
       setFcmToken(token);
       await saveTokenToFirestore(token, userId, userEmail);
     });
 
-    // 백그라운드/종료 상태에서 알림 클릭 처리
     messaging()
       .getInitialNotification()
       .then((remoteMessage) => {
@@ -133,13 +124,11 @@ export function useFirebaseMessaging(userId?: string, userEmail?: string) {
         }
       });
 
-    // 백그라운드 상태에서 알림 클릭 처리
     const unsubscribeOnNotificationOpenedApp = messaging().onNotificationOpenedApp((remoteMessage) => {
       setNotification(remoteMessage);
       setNotificationTapped(remoteMessage);
     });
 
-    // Cleanup
     return () => {
       unsubscribeOnMessage();
       unsubscribeOnTokenRefresh();
@@ -147,7 +136,6 @@ export function useFirebaseMessaging(userId?: string, userEmail?: string) {
     };
   }, [userId, userEmail]);
 
-  // 특정 주제 구독
   const subscribeToTopic = async (topic: string) => {
     try {
       await messaging().subscribeToTopic(topic);
@@ -157,7 +145,6 @@ export function useFirebaseMessaging(userId?: string, userEmail?: string) {
     }
   };
 
-  // 특정 주제 구독 해제
   const unsubscribeFromTopic = async (topic: string) => {
     try {
       await messaging().unsubscribeFromTopic(topic);

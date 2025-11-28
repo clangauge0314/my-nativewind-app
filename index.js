@@ -1,16 +1,28 @@
 import messaging from '@react-native-firebase/messaging';
+import { Audio } from 'expo-av';
 import * as Notifications from 'expo-notifications';
 import 'expo-router/entry';
+import { Platform } from 'react-native';
 
-// 백그라운드 메시지 핸들러
 messaging().setBackgroundMessageHandler(async (remoteMessage) => {
-  // 백그라운드에서도 명시적으로 헤드업 알림 표시
+  if (Platform.OS === 'android') {
+    try {
+      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: 'asset:/alarm_sound.mp3' },
+        { shouldPlay: true, volume: 1.0 }
+      );
+    } catch (error) {
+      console.error('Error playing background sound:', error);
+    }
+  }
+
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
         title: remoteMessage.notification?.title || remoteMessage.data?.title || 'Notification',
         body: remoteMessage.notification?.body || remoteMessage.data?.body || '',
-        sound: 'default',
+        sound: 'alarm_sound',
         priority: Notifications.AndroidNotificationPriority.MAX,
         vibrate: [0, 250, 250, 250],
         categoryIdentifier: 'meal_alarm',
